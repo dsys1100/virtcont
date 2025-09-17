@@ -1,7 +1,7 @@
 name: Create vdisk with rootfs
 
 on:
-  workflow_dispatch: {} # Enables the manual start
+  workflow_dispatch:
     inputs:
       codename:
         description: "Select Ubuntu Codename:"
