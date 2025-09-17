@@ -140,7 +140,7 @@ jobs:
       - name: Create Git Tag and Release with unique name
         id: vars
         run: |
-          echo "Rootfs-$(date +'%Y%m%d-%H%M%S'-UTC)" >> "$GITHUB_OUTPUT"
+          echo "tag_name=Rootfs-$(date +'%Y%m%d-%H%M%S'-UTC)" >> "$GITHUB_OUTPUT"
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
           git tag ${{ steps.vars.outputs.tag_name }}
