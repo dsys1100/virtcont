@@ -1,0 +1,137 @@
+name: Create vdisk with rootfs
+
+on:
+  workflow_dispatch: {} # Enables the manual start
+    inputs:
+      codename:
+        description: "Select Ubuntu Codename:"
+        required: true
+        type: string
+        default: "noble"
+      noLogs:
+        description: "Delete releases,tags,workflowRuns?"
+        required: true
+        type: string
+        default: "false"
+  #schedule:
+    #- cron: '0 23 * * *' # Start every day at 23:00 UTC
+
+permissions:
+  contents: write # Give permission to put the release into the repo
+  actions: write # Give permission to delete workflow runs
+
+jobs:
+  ClearReleasesTagsWorkflowlogs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Delete all releases
+        run: |
+          gh release list --limit 1000 | awk '{print $1}' | while read tag; do
+            echo "Deleting release: $tag"
+            gh release delete "$tag" -y || true
+          done
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Delete all tags
+        run: |
+          git fetch --tags
+          git ls-remote --tags origin | awk '{print $2}' | sed 's|refs/tags/||' | while read tag; do
+            echo "Deleting tag: $tag"
+            git push origin --delete "$tag" || true
+          done
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Delete workflow runs
+        uses: Mattraks/delete-workflow-runs@v2
+        with:
+          token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          retain_days: 0
+          keep_minimum_runs: 0
+
+  CreateVdiskWithRootfs:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup
+        id: setup
+        run: |
+          export homefolder=$HOME
+          export chrootcomm="sudo chroot $homefolder/kvm-virt/rootfs /bin/bash -c"
+          sudo apt update && sudo apt full-upgrade -y && sudo apt install debootstrap -y
+        shell: bash
+
+      - name: Download rootfs
+        id: download
+        run: |
+          mkdir -p $homefolder/kvm-virt/rootfs
+          sudo debootstrap --arch=amd64 ${{ github.event.inputs.codename }} $homefolder/kvm-virt/rootfs http://archive.ubuntu.com/ubuntu/
+        shell: bash
+
+      - name: Configure rootfs
+        id: configure
+        run: |
+          $chrootcomm "echo 'virt' > /etc/hostname"
+          $chrootcomm "echo '127.0.0.1 localhost virt' > /etc/hosts"
+          $chrootcomm "echo '/dev/vda1 / ext4 defaults,noatime 0 1' > /etc/fstab"
+          $chrootcomm "echo 'root:000' | chpasswd"
+          $chrootcomm "useradd -m -G sudo -s /bin/bash vuser"
+          $chrootcomm "echo 'vuser ALL=(ALL) ALL' >> /etc/sudoers.d/vuser"
+          $chrootcomm "chmod 0440 /etc/sudoers.d/vuser"
+          $chrootcomm "echo 'vuser:000' | chpasswd"
+          $chrootcomm "passwd -l root"
+          echo "[Match]" | sudo tee $homefolder/kvm-virt/rootfs/etc/systemd/network/20-ens3.network
+          echo "Name=ens3" | sudo tee -a $homefolder/kvm-virt/rootfs/etc/systemd/network/20-ens3.network
+          echo "" | sudo tee -a $homefolder/kvm-virt/rootfs/etc/systemd/network/20-ens3.network
+          echo "[Network]" | sudo tee -a $homefolder/kvm-virt/rootfs/etc/systemd/network/20-ens3.network
+          echo "Address=10.0.2.15/24" | sudo tee -a $homefolder/kvm-virt/rootfs/etc/systemd/network/20-ens3.network
+          echo "Gateway=10.0.2.2" | sudo tee -a $homefolder/kvm-virt/rootfs/etc/systemd/network/20-ens3.network
+          echo "DNS=8.8.8.8" | sudo tee -a $homefolder/kvm-virt/rootfs/etc/systemd/network/20-ens3.network
+          $chrootcomm "systemctl enable systemd-networkd && systemctl enable systemd-resolved"
+        shell: bash
+
+      - name: Create vdisk
+        id: vdisk
+        run: |
+          qemu-img create -f qcow2 $homefolder/kvm-virt/disk-template.qcow2 5G
+          sudo modprobe nbd max_part=8
+          sudo qemu-nbd --connect=/dev/nbd0 $homefolder/kvm-virt/disk-template.qcow2
+          sudo parted /dev/nbd0 mklabel msdos
+          sudo parted /dev/nbd0 mkpart primary ext4 1MiB 100%
+          sudo mkfs.ext4 /dev/nbd0p1
+          sudo mount /dev/nbd0p1 /mnt
+          sudo mv $homefolder/kvm-virt/rootfs/* /mnt/
+          sudo umount /mnt
+          sudo qemu-nbd --disconnect /dev/nbd0
+          rm -rf $homefolder/kvm-virt/rootfs
+        shell: bash
+
+      - name: Move final files
+        id: move
+        run: |
+          mv $homefolder/kvm-virt/disk-template.qcow2 $PWD/disk.qcow2
+        shell: bash
+
+      - name: Create Release Info
+        run: |
+          echo "Ubuntu codename: ${{ github.event.inputs.codename }}" > release_body.txt
+        shell: bash
+
+      - name: Upload Release
+        uses: softprops/action-gh-release@master
+        with:
+          files: |
+            *.qcow2
+          tag_name: Rootfs
+          draft: false
+          body_path: release_body.txt
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
