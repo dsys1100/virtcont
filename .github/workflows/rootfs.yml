@@ -22,6 +22,7 @@ permissions:
 
 jobs:
   ClearReleasesTagsWorkflowlogs:
+    if: ${{ github.event.inputs.noLogs == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -64,9 +65,9 @@ jobs:
       - name: Setup
         id: setup
         run: |
-          export homefolder=$HOME
+          export homefolder=/tmp/
           export chrootcomm="sudo chroot $homefolder/kvm-virt/rootfs /bin/bash -c"
-          sudo apt update && sudo apt full-upgrade -y && sudo apt install debootstrap -y
+          sudo apt update && sudo apt install debootstrap -y
         shell: bash
 
       - name: Download rootfs
