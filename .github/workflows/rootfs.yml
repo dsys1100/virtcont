@@ -65,16 +65,16 @@ jobs:
       - name: Setup
         id: setup
         run: |
-          export homefolder=/tmp/
-          export chrootcomm="sudo chroot $homefolder/kvm-virt/rootfs /bin/bash -c"
+          export chrootcomm="sudo chroot /tmp/kvm-virt/rootfs /bin/bash -c"
+          sudo rm /var/lib/man-db/auto-update
           sudo apt update && sudo apt install debootstrap -y
         shell: bash
 
       - name: Download rootfs
         id: download
         run: |
-          mkdir -p $homefolder/kvm-virt/rootfs
-          sudo debootstrap --arch=amd64 ${{ github.event.inputs.codename }} $homefolder/kvm-virt/rootfs http://archive.ubuntu.com/ubuntu/
+          mkdir -p /tmp/kvm-virt/rootfs
+          sudo debootstrap --arch=amd64 ${{ github.event.inputs.codename }} /tmp/kvm-virt/rootfs http://archive.ubuntu.com/ubuntu/
         shell: bash
 
       - name: Configure rootfs
@@ -89,36 +89,36 @@ jobs:
           $chrootcomm "chmod 0440 /etc/sudoers.d/vuser"
           $chrootcomm "echo 'vuser:000' | chpasswd"
           $chrootcomm "passwd -l root"
-          echo "[Match]" | sudo tee $homefolder/kvm-virt/rootfs/etc/systemd/network/20-ens3.network
-          echo "Name=ens3" | sudo tee -a $homefolder/kvm-virt/rootfs/etc/systemd/network/20-ens3.network
-          echo "" | sudo tee -a $homefolder/kvm-virt/rootfs/etc/systemd/network/20-ens3.network
-          echo "[Network]" | sudo tee -a $homefolder/kvm-virt/rootfs/etc/systemd/network/20-ens3.network
-          echo "Address=10.0.2.15/24" | sudo tee -a $homefolder/kvm-virt/rootfs/etc/systemd/network/20-ens3.network
-          echo "Gateway=10.0.2.2" | sudo tee -a $homefolder/kvm-virt/rootfs/etc/systemd/network/20-ens3.network
-          echo "DNS=8.8.8.8" | sudo tee -a $homefolder/kvm-virt/rootfs/etc/systemd/network/20-ens3.network
+          echo "[Match]" | sudo tee /tmp/kvm-virt/rootfs/etc/systemd/network/20-ens3.network
+          echo "Name=ens3" | sudo tee -a /tmp/kvm-virt/rootfs/etc/systemd/network/20-ens3.network
+          echo "" | sudo tee -a /tmp/kvm-virt/rootfs/etc/systemd/network/20-ens3.network
+          echo "[Network]" | sudo tee -a /tmp/kvm-virt/rootfs/etc/systemd/network/20-ens3.network
+          echo "Address=10.0.2.15/24" | sudo tee -a /tmp/kvm-virt/rootfs/etc/systemd/network/20-ens3.network
+          echo "Gateway=10.0.2.2" | sudo tee -a /tmp/kvm-virt/rootfs/etc/systemd/network/20-ens3.network
+          echo "DNS=8.8.8.8" | sudo tee -a /tmp/kvm-virt/rootfs/etc/systemd/network/20-ens3.network
           $chrootcomm "systemctl enable systemd-networkd && systemctl enable systemd-resolved"
         shell: bash
 
       - name: Create vdisk
         id: vdisk
         run: |
-          qemu-img create -f qcow2 $homefolder/kvm-virt/disk-template.qcow2 5G
+          qemu-img create -f qcow2 /tmp/kvm-virt/disk-template.qcow2 5G
           sudo modprobe nbd max_part=8
-          sudo qemu-nbd --connect=/dev/nbd0 $homefolder/kvm-virt/disk-template.qcow2
+          sudo qemu-nbd --connect=/dev/nbd0 /tmp/kvm-virt/disk-template.qcow2
           sudo parted /dev/nbd0 mklabel msdos
           sudo parted /dev/nbd0 mkpart primary ext4 1MiB 100%
           sudo mkfs.ext4 /dev/nbd0p1
           sudo mount /dev/nbd0p1 /mnt
-          sudo mv $homefolder/kvm-virt/rootfs/* /mnt/
+          sudo mv /tmp/kvm-virt/rootfs/* /mnt/
           sudo umount /mnt
           sudo qemu-nbd --disconnect /dev/nbd0
-          rm -rf $homefolder/kvm-virt/rootfs
+          rm -rf /tmp/kvm-virt/rootfs
         shell: bash
 
       - name: Move final files
         id: move
         run: |
-          mv $homefolder/kvm-virt/disk-template.qcow2 $PWD/disk.qcow2
+          mv /tmp/kvm-virt/disk-template.qcow2 $PWD/disk.qcow2
         shell: bash
 
       - name: Create Release Info
