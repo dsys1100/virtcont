@@ -65,7 +65,6 @@ jobs:
       - name: Setup
         id: setup
         run: |
-          export chrootcomm="sudo chroot /tmp/kvm-virt/rootfs /bin/bash -c"
           sudo rm /var/lib/man-db/auto-update
           sudo apt update && sudo apt install debootstrap -y
         shell: bash
@@ -80,15 +79,15 @@ jobs:
       - name: Configure rootfs
         id: configure
         run: |
-          $chrootcomm "echo 'virt' > /etc/hostname"
-          $chrootcomm "echo '127.0.0.1 localhost virt' > /etc/hosts"
-          $chrootcomm "echo '/dev/vda1 / ext4 defaults,noatime 0 1' > /etc/fstab"
-          $chrootcomm "echo 'root:000' | chpasswd"
-          $chrootcomm "useradd -m -G sudo -s /bin/bash vuser"
-          $chrootcomm "echo 'vuser ALL=(ALL) ALL' >> /etc/sudoers.d/vuser"
-          $chrootcomm "chmod 0440 /etc/sudoers.d/vuser"
-          $chrootcomm "echo 'vuser:000' | chpasswd"
-          $chrootcomm "passwd -l root"
+          sudo chroot /tmp/kvm-virt/rootfs /bin/bash -c "echo 'virt' > /etc/hostname"
+          sudo chroot /tmp/kvm-virt/rootfs /bin/bash -c "echo '127.0.0.1 localhost virt' > /etc/hosts"
+          sudo chroot /tmp/kvm-virt/rootfs /bin/bash -c "echo '/dev/vda1 / ext4 defaults,noatime 0 1' > /etc/fstab"
+          sudo chroot /tmp/kvm-virt/rootfs /bin/bash -c "echo 'root:000' | chpasswd"
+          sudo chroot /tmp/kvm-virt/rootfs /bin/bash -c "useradd -m -G sudo -s /bin/bash vuser"
+          sudo chroot /tmp/kvm-virt/rootfs /bin/bash -c "echo 'vuser ALL=(ALL) ALL' >> /etc/sudoers.d/vuser"
+          sudo chroot /tmp/kvm-virt/rootfs /bin/bash -c "chmod 0440 /etc/sudoers.d/vuser"
+          sudo chroot /tmp/kvm-virt/rootfs /bin/bash -c "echo 'vuser:000' | chpasswd"
+          sudo chroot /tmp/kvm-virt/rootfs /bin/bash -c "passwd -l root"
           echo "[Match]" | sudo tee /tmp/kvm-virt/rootfs/etc/systemd/network/20-ens3.network
           echo "Name=ens3" | sudo tee -a /tmp/kvm-virt/rootfs/etc/systemd/network/20-ens3.network
           echo "" | sudo tee -a /tmp/kvm-virt/rootfs/etc/systemd/network/20-ens3.network
@@ -96,7 +95,7 @@ jobs:
           echo "Address=10.0.2.15/24" | sudo tee -a /tmp/kvm-virt/rootfs/etc/systemd/network/20-ens3.network
           echo "Gateway=10.0.2.2" | sudo tee -a /tmp/kvm-virt/rootfs/etc/systemd/network/20-ens3.network
           echo "DNS=8.8.8.8" | sudo tee -a /tmp/kvm-virt/rootfs/etc/systemd/network/20-ens3.network
-          $chrootcomm "systemctl enable systemd-networkd && systemctl enable systemd-resolved"
+          sudo chroot /tmp/kvm-virt/rootfs /bin/bash -c "systemctl enable systemd-networkd && systemctl enable systemd-resolved"
         shell: bash
 
       - name: Create vdisk
