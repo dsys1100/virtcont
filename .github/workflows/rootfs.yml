@@ -4,10 +4,15 @@ on:
   workflow_dispatch:
     inputs:
       codename:
-        description: "Select Ubuntu Codename:"
+        description: "Select Ubuntu codename:"
         required: true
         type: string
         default: "noble"
+      size:
+        description: "Select size of vdisk:"
+        required: true
+        type: string
+        default: "10G"
       noLogs:
         description: "Delete releases,tags,workflowRuns?"
         required: true
@@ -98,10 +103,16 @@ jobs:
           sudo chroot /tmp/kvm-virt/rootfs /bin/bash -c "systemctl enable systemd-networkd && systemctl enable systemd-resolved"
         shell: bash
 
+      - name: Create rootfs.tar
+        id: tar
+        run: |
+          sudo tar -cp -f rootfs.tar -C /tmp/kvm-virt rootfs
+        shell: bash
+
       - name: Create vdisk
         id: vdisk
         run: |
-          qemu-img create -f qcow2 /tmp/kvm-virt/disk-template.qcow2 5G
+          qemu-img create -f qcow2 /tmp/kvm-virt/disk-template.qcow2 ${{ github.event.inputs.size }}
           sudo modprobe nbd max_part=8
           sudo qemu-nbd --connect=/dev/nbd0 /tmp/kvm-virt/disk-template.qcow2
           sudo parted /dev/nbd0 mklabel msdos
@@ -117,7 +128,8 @@ jobs:
       - name: Move final files
         id: move
         run: |
-          mv /tmp/kvm-virt/disk-template.qcow2 $PWD/disk.qcow2
+          mv /tmp/kvm-virt/disk-template.qcow2 $PWD/${{ github.event.inputs.codename }}.qcow2
+          mv rootfs.tar ${{ github.event.inputs.codename }}.tar
         shell: bash
 
       - name: Create Release Info
@@ -129,6 +141,7 @@ jobs:
         uses: softprops/action-gh-release@master
         with:
           files: |
+            *.tar
             *.qcow2
           tag_name: Rootfs
           draft: false
