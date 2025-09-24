@@ -18,8 +18,8 @@ on:
         required: true
         type: string
         default: "false"
-  #schedule:
-    #- cron: '0 23 * * *' # Start every day at 23:00 UTC
+  schedule:
+    - cron: '0 0 * * 4' # Start every Thursday
 
 permissions:
   contents: write # Give permission to put the release into the repo
