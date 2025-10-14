@@ -25,6 +25,10 @@ permissions:
   contents: write # Give permission to put the release into the repo
   actions: write # Give permission to delete workflow runs
 
+env:
+  DEFAULT_CODENAME: noble
+  DEFAULT_SIZE: 10G
+
 jobs:
   ClearReleasesTagsWorkflowlogs:
     if: ${{ github.event.inputs.noLogs == 'true' }}
@@ -78,7 +82,8 @@ jobs:
         id: download
         run: |
           mkdir -p /tmp/kvm-virt/rootfs
-          sudo debootstrap --arch=amd64 ${{ github.event.inputs.codename }} /tmp/kvm-virt/rootfs http://archive.ubuntu.com/ubuntu/
+          CODENAME="${{ github.event.inputs.codename || env.DEFAULT_CODENAME }}"
+          sudo debootstrap --arch=amd64 "$CODENAME" /tmp/kvm-virt/rootfs http://archive.ubuntu.com/ubuntu/
         shell: bash
 
       - name: Configure rootfs
@@ -112,7 +117,8 @@ jobs:
       - name: Create vdisk
         id: vdisk
         run: |
-          qemu-img create -f qcow2 /tmp/kvm-virt/disk-template.qcow2 ${{ github.event.inputs.size }}
+          SIZE="${{ github.event.inputs.size || env.DEFAULT_SIZE }}"
+          qemu-img create -f qcow2 /tmp/kvm-virt/disk-template.qcow2 "$SIZE"
           sudo modprobe nbd max_part=8
           sudo qemu-nbd --connect=/dev/nbd0 /tmp/kvm-virt/disk-template.qcow2
           sudo parted /dev/nbd0 mklabel msdos
@@ -128,13 +134,13 @@ jobs:
       - name: Move final files
         id: move
         run: |
-          mv /tmp/kvm-virt/disk-template.qcow2 $PWD/${{ github.event.inputs.codename }}.qcow2
-          mv rootfs.tar ${{ github.event.inputs.codename }}.tar
+          mv /tmp/kvm-virt/disk-template.qcow2 $PWD/$CODENAME.qcow2
+          mv rootfs.tar $CODENAME.tar
         shell: bash
 
       - name: Create Release Info
         run: |
-          echo "Ubuntu codename: ${{ github.event.inputs.codename }}" > release_body.txt
+          echo "Ubuntu codename: $CODENAME" > release_body.txt
         shell: bash
 
       - name: Create Git Tag and Release with unique name
