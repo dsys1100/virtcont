@@ -92,6 +92,11 @@ jobs:
       - name: Configure rootfs
         id: configure
         run: |
+          sudo chroot /tmp/kvm-virt/rootfs /bin/bash -c "echo 'deb http://archive.ubuntu.com/ubuntu $(cat /etc/os-release | grep UBUNTU_CODENAME | cut -d = -f 2) main restricted universe multiverse' > /etc/apt/sources.list"
+          sudo chroot /tmp/kvm-virt/rootfs /bin/bash -c "echo 'deb http://archive.ubuntu.com/ubuntu $(cat /etc/os-release | grep UBUNTU_CODENAME | cut -d = -f 2)-updates main restricted universe multiverse' >> /etc/apt/sources.list"
+          sudo chroot /tmp/kvm-virt/rootfs /bin/bash -c "echo 'deb http://archive.ubuntu.com/ubuntu $(cat /etc/os-release | grep UBUNTU_CODENAME | cut -d = -f 2)-security main restricted universe multiverse' >> /etc/apt/sources.list"
+          sudo chroot /tmp/kvm-virt/rootfs /bin/bash -c "echo 'deb http://archive.ubuntu.com/ubuntu $(cat /etc/os-release | grep UBUNTU_CODENAME | cut -d = -f 2)-backports main universe restricted multiverse' >> /etc/apt/sources.list"
+          sudo chroot /tmp/kvm-virt/rootfs /bin/bash -c "apt update && apt full-upgrade -y && apt autoremove -y && apt-get clean"
           sudo chroot /tmp/kvm-virt/rootfs /bin/bash -c "echo 'virt' > /etc/hostname"
           sudo chroot /tmp/kvm-virt/rootfs /bin/bash -c "echo '127.0.0.1 localhost virt' > /etc/hosts"
           sudo chroot /tmp/kvm-virt/rootfs /bin/bash -c "echo '/dev/vda1 / ext4 defaults,noatime 0 1' > /etc/fstab"
