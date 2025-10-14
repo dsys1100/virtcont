@@ -76,14 +76,17 @@ jobs:
         run: |
           sudo rm /var/lib/man-db/auto-update
           sudo apt update && sudo apt install debootstrap qemu-kvm -y
+          CODENAME="${{ github.event.inputs.codename || env.DEFAULT_CODENAME }}"
+          echo "CODENAME=$CODENAME" >> "$GITHUB_ENV"
+          SIZE="${{ github.event.inputs.size || env.DEFAULT_SIZE }}"
+          echo "SIZE=$SIZE" >> "$GITHUB_ENV"
         shell: bash
 
       - name: Download rootfs
         id: download
         run: |
           mkdir -p /tmp/kvm-virt/rootfs
-          CODENAME="${{ github.event.inputs.codename || env.DEFAULT_CODENAME }}"
-          sudo debootstrap --arch=amd64 "$CODENAME" /tmp/kvm-virt/rootfs http://archive.ubuntu.com/ubuntu/
+          sudo debootstrap --arch=amd64 ${CODENAME} /tmp/kvm-virt/rootfs http://archive.ubuntu.com/ubuntu/
         shell: bash
 
       - name: Configure rootfs
@@ -117,8 +120,7 @@ jobs:
       - name: Create vdisk
         id: vdisk
         run: |
-          SIZE="${{ github.event.inputs.size || env.DEFAULT_SIZE }}"
-          qemu-img create -f qcow2 /tmp/kvm-virt/disk-template.qcow2 "$SIZE"
+          qemu-img create -f qcow2 /tmp/kvm-virt/disk-template.qcow2 ${SIZE}
           sudo modprobe nbd max_part=8
           sudo qemu-nbd --connect=/dev/nbd0 /tmp/kvm-virt/disk-template.qcow2
           sudo parted /dev/nbd0 mklabel msdos
@@ -134,13 +136,14 @@ jobs:
       - name: Move final files
         id: move
         run: |
-          mv /tmp/kvm-virt/disk-template.qcow2 $PWD/$CODENAME.qcow2
-          mv rootfs.tar $CODENAME.tar
+          mv /tmp/kvm-virt/disk-template.qcow2 $PWD/${CODENAME}.qcow2
+          mv rootfs.tar ${CODENAME}.tar
         shell: bash
 
       - name: Create Release Info
         run: |
-          echo "Ubuntu codename: $CODENAME" > release_body.txt
+          echo "Ubuntu codename: ${CODENAME}" > release_body.txt
+          echo "Virtual disk size: ${SIZE}" >> release_body.txt
         shell: bash
 
       - name: Create Git Tag and Release with unique name
