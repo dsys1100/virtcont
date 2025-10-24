@@ -18,8 +18,6 @@ on:
         required: true
         type: string
         default: "false"
-  schedule:
-    - cron: '0 0 * * 4' # Start every Thursday
 
 permissions:
   contents: write # Give permission to put the release into the repo
@@ -64,7 +62,7 @@ jobs:
           retain_days: 0
           keep_minimum_runs: 0
 
-  CreateVdiskWithRootfs:
+  CreateVdiskWithRootfs-Manual:
     runs-on: ubuntu-latest
 
     steps:
@@ -76,17 +74,13 @@ jobs:
         run: |
           sudo rm /var/lib/man-db/auto-update
           sudo apt update && sudo apt install debootstrap qemu-kvm -y
-          CODENAME="${{ github.event.inputs.codename || env.DEFAULT_CODENAME }}"
-          echo "CODENAME=$CODENAME" >> "$GITHUB_ENV"
-          SIZE="${{ github.event.inputs.size || env.DEFAULT_SIZE }}"
-          echo "SIZE=$SIZE" >> "$GITHUB_ENV"
         shell: bash
 
       - name: Download rootfs
         id: download
         run: |
           mkdir -p /tmp/kvm-virt/rootfs
-          sudo debootstrap --arch=amd64 ${CODENAME} /tmp/kvm-virt/rootfs http://archive.ubuntu.com/ubuntu/
+          sudo debootstrap --arch=amd64 ${{ github.event.inputs.codename }} /tmp/kvm-virt/rootfs http://archive.ubuntu.com/ubuntu/
         shell: bash
 
       - name: Configure rootfs
@@ -125,7 +119,7 @@ jobs:
       - name: Create vdisk
         id: vdisk
         run: |
-          qemu-img create -f qcow2 /tmp/kvm-virt/disk-template.qcow2 ${SIZE}
+          qemu-img create -f qcow2 /tmp/kvm-virt/disk-template.qcow2 ${{ github.event.inputs.size }}
           sudo modprobe nbd max_part=8
           sudo qemu-nbd --connect=/dev/nbd0 /tmp/kvm-virt/disk-template.qcow2
           sudo parted /dev/nbd0 mklabel msdos
@@ -141,14 +135,14 @@ jobs:
       - name: Move final files
         id: move
         run: |
-          mv /tmp/kvm-virt/disk-template.qcow2 $PWD/${CODENAME}.qcow2
-          mv rootfs.tar ${CODENAME}.tar
+          mv /tmp/kvm-virt/disk-template.qcow2 $PWD/${{ github.event.inputs.codename }}.qcow2
+          mv rootfs.tar ${{ github.event.inputs.codename }}.tar
         shell: bash
 
       - name: Create Release Info
         run: |
-          echo "Ubuntu codename: ${CODENAME}" > release_body.txt
-          echo "Virtual disk size: ${SIZE}" >> release_body.txt
+          echo "Ubuntu codename: ${{ github.event.inputs.codename }}" > release_body.txt
+          echo "Virtual disk size: ${{ github.event.inputs.size }}" >> release_body.txt
         shell: bash
 
       - name: Create Git Tag and Release with unique name
