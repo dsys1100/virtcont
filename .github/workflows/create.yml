@@ -1,7 +1,7 @@
 name: Create vdisks with rootfs
 
 on:
-  workflow_dispatch: {} # Enables the manual start
+  workflow_dispatch:
     inputs:
       noLogs:
         description: "Delete releases,tags,workflowRuns?"
